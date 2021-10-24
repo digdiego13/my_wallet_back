@@ -3,6 +3,7 @@ import connection from './database.js';
 import cors from 'cors';
 import bcrypt from 'bcrypt';
 import { v4 as uuid } from 'uuid';
+import dayjs from 'dayjs'
 
 const app = express();
 app.use(cors());
@@ -74,6 +75,50 @@ app.post("/sign-up", async (req, res) => {
     }
     
 });
+
+app.get("/main", async(req, res) => {
+    
+
+    const today = dayjs().format('YYYY/MM/DD')
+    const authorization = req.headers.authorization;
+    const token = authorization?.replace("Bearer ", "");
+
+    if(!token) return res.sendStatus(401);
+
+    try {
+    const result = await connection.query(`
+    SELECT * FROM sessions
+    JOIN users
+    ON sessions."userId" = users.id
+    WHERE sessions.token = $1
+  `, [token]);
+
+  const user = result.rows[0];
+        console.log(user)
+  if(user) {
+    //found the user in dataBase.
+    const boxPromise = await connection.query(`
+        SELECT * FROM cash
+        WHERE "userId" = $1
+    `, [user.userId]);
+    console.log(boxPromise.rows);
+
+    boxPromise.rows.forEach(item =>
+        item.date = dayjs(item.date).format('YYYY-MM-DD')
+    )
+
+    res.send(boxPromise.rows);
+
+  } else {
+      //usuario deve relogar
+    res.sendStatus(401);
+  }
+        
+    } catch (error) {
+        res.sendStatus(500)
+    }
+});
+
 
 
 app.get("/status", (req, res) => {
