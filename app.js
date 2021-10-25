@@ -103,8 +103,10 @@ app.get("/main", async(req, res) => {
     `, [user.userId]);
     console.log(boxPromise.rows);
 
-    boxPromise.rows.forEach(item =>
-        item.date = dayjs(item.date).format('YYYY-MM-DD')
+    boxPromise.rows.forEach(item => {
+        item.date = dayjs(item.date).format('YYYY-MM-DD');
+        item.box = Number(item.box).toFixed(2);
+    }
     )
 
     res.send(boxPromise.rows);
@@ -119,12 +121,50 @@ app.get("/main", async(req, res) => {
     }
 });
 
+app.post("/cash/:type", async(req, res) => {
+    
+    let {
+        transaction,
+        description
+    } = req.body;
+
+    const type = req.params.type
+    if(type === 'spend') {
+        transaction = transaction * -1;
+    };
+
+
+    const date = dayjs().format('YYYY-MM-DD');
+    const authorization = req.headers.authorization;
+    const token = authorization?.replace("Bearer ", "");
+
+    if(!token) return res.sendStatus(401);
+
+
+    try {
+        console.log('ok')
+        const result = await connection.query(`
+        SELECT * FROM sessions WHERE token = $1;
+    `, [token]);
+        if(result.rowCount === 0) return res.status(401).send("You are not logged in")
+        const userId = result.rows[0].userId;
+        console.log(userId)
+        await connection.query(`
+        INSERT INTO cash ("userId", box, date, description) VALUES ($1, $2, $3, $4)
+        `, [userId, transaction, date, description])
+
+        res.sendStatus(200);
+    } catch (error) {
+        res.sendStatus(500);
+    }
+});
 
 
 app.get("/status", (req, res) => {
     // Manda como resposta o texto 'Hello World'
     res.send('Hello World');
 });
+
 
 
 export default app;
