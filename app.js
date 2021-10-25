@@ -3,11 +3,27 @@ import connection from './database.js';
 import cors from 'cors';
 import bcrypt from 'bcrypt';
 import { v4 as uuid } from 'uuid';
-import dayjs from 'dayjs'
+import dayjs from 'dayjs';
+import Joi from 'joi';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+const newCashSchema = Joi.object().keys({
+    description: Joi.string().alphanum().min(1).max(20).required(),
+    transaction: Joi.number().min(0).max(1000000).required()
+});
+
+const signUpSchema = Joi.object().keys({
+    username: Joi.string().min(3).max(30).required(),
+    email: Joi.string().email({ tlds: { allow: false } }),
+    password: Joi.string().min(6).max(15)
+});
+
+
+
+
 
 app.post("/sign-in", async(req, res) => {
 
@@ -49,7 +65,13 @@ app.post("/sign-in", async(req, res) => {
 
 app.post("/sign-up", async (req, res) => {
     const { username, email, password } = req.body;
-    
+
+    const isCorrectBody = signUpSchema.validate(req.body);
+
+    if(isCorrectBody.error) {
+        return res.status(400).send(`${isCorrectBody.error.details[0].message}`)
+    }
+
     const passwordHash = bcrypt.hashSync(password, 10);
     try{
 
@@ -128,6 +150,12 @@ app.post("/cash/:type", async(req, res) => {
         description
     } = req.body;
 
+    const isCorrectBody = newCashSchema.validate(req.body);
+
+    if(isCorrectBody.error) {
+        return res.status(400).send(`${isCorrectBody.error.details[0].message}`)
+    }
+
     const type = req.params.type
     if(type === 'spend') {
         transaction = transaction * -1;
@@ -158,6 +186,23 @@ app.post("/cash/:type", async(req, res) => {
         res.sendStatus(500);
     }
 });
+
+
+app.post("/sign-out", async(req, res) => {
+
+    const authorization = req.headers.authorization;
+    const token = authorization?.replace("Bearer ", "");
+
+    if(!token) return res.sendStatus(401);
+
+    await connection.query(`
+        DELETE FROM sessions WHERE token = $1
+    `,[token]);
+
+    res.sendStatus(200);
+
+})
+
 
 
 app.get("/status", (req, res) => {
