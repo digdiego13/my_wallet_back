@@ -5,7 +5,6 @@ import bcrypt from 'bcrypt';
 
 describe("POST /sign-in", ()=> {
 
-    
     const body = {
         email: "didi@gmail.com",
         password:"123456"
@@ -15,7 +14,6 @@ describe("POST /sign-in", ()=> {
     const username = "Dieguinho";
 
     beforeAll(async ()=> {
-
 
         await connection.query(`
         INSERT INTO users
@@ -51,14 +49,6 @@ describe("POST /sign-in", ()=> {
             name: username,
             token: expect.any(String)
         })
-    })
-
-    test("Returns 500 if there is something Wrong", async() => {
-        const body = {}
-        const result = await supertest(app).post("/sign-in").send(body);
-        const status = result.status;
-        
-        expect(status).toEqual(500);
     })
 
 })
